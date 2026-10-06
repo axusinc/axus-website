@@ -49,9 +49,8 @@ export default function ContrailsCanvas() {
 
       // AXUS Red sRGB #B61C1C = vec3(182.0/255.0, 28.0/255.0, 28.0/255.0)
       const vec3 AXUS_RED = vec3(0.7137, 0.1098, 0.1098);
-      const vec3 DEEP_RED = vec3(0.38, 0.04, 0.04);
-      const vec3 GLOW_RED = vec3(0.88, 0.18, 0.16);
-      const vec3 HOT_CORE = vec3(0.98, 0.32, 0.28);
+      const vec3 DEEP_RED = vec3(0.20, 0.015, 0.015);
+      const vec3 MID_RED = vec3(0.48, 0.05, 0.05);
 
       // Simple hash & noise for vapor wisps
       float hash(vec2 p) {
@@ -125,16 +124,16 @@ export default function ContrailsCanvas() {
         vec2 toMouse = uv - mouseCoord;
         float mouseDist = length(toMouse);
 
-        // Soft repulsive push radius (elastic cushion)
-        float pushRadius = 0.75;
+        // Soft repulsive push radius (gentle cushion)
+        float pushRadius = 0.70;
         if (mouseDist < pushRadius && u_mouse_active > 0.01) {
           float pushFactor = (1.0 - smoothstep(0.0, pushRadius, mouseDist));
-          // Gentle non-linear push force (subtle displacement)
-          float pushMag = pushFactor * pushFactor * 0.14 * u_mouse_active;
+          // Sliiiightly pushed by cursor
+          float pushMag = pushFactor * pushFactor * 0.09 * u_mouse_active;
           vec2 pushDir = normalize(toMouse + vec2(0.0001));
           
-          // Apply cursor displacement to sample coordinates
-          uv += pushDir * pushMag;
+          // Displace coordinates inward so visual contrails part outward (pushed away)
+          uv -= pushDir * pushMag;
         }
 
         // Slight rotation for aerodynamic contrail angle (-10 degrees)
@@ -143,8 +142,8 @@ export default function ContrailsCanvas() {
         float sinA = sin(angle);
         vec2 p = vec2(cosA * uv.x - sinA * uv.y, sinA * uv.x + cosA * uv.y);
 
-        // Slow, hypnotic time factor
-        float t = u_time * 0.45;
+        // Slow, hypnotic time drift
+        float t = u_time * 0.22;
 
         // Accumulate layered contrails
         // 1. Broad deep ambient red vapor bank (base atmosphere)
@@ -163,40 +162,29 @@ export default function ContrailsCanvas() {
         float c6 = sampleContrail(p, -0.70, t, 0.15, 0.8, 0.20, 0.45, 29.3) * 0.35;
         float c7 = sampleContrail(p, 0.65, t, 0.20, 1.0, 0.25, 0.50, 37.9) * 0.35;
 
-        // Total intensity blend
-        float broadHaze = (c0 + c1 + c6 + c7) * 0.65;
-        float midTrails = (c2 + c3) * 0.75;
-        float coreTrails = (c4 + c5) * 0.90;
+        // Total intensity blend with subdued ambient levels
+        float broadHaze = (c0 + c1 + c6 + c7) * 0.28;
+        float midTrails = (c2 + c3) * 0.42;
+        float coreTrails = (c4 + c5) * 0.52;
 
-        float totalIntensity = broadHaze + midTrails + coreTrails;
-
-        // Soft vignette to keep edges deep black and center cinematic
-        float vig = 1.0 - smoothstep(0.8, 2.6, length(uv));
-        totalIntensity *= clamp(vig, 0.0, 1.0);
-
-        // Color mapping to AXUS Red (#B61C1C)
-        // Deep shadows -> Pure black
-        // Low intensity -> Deep velvety crimson
-        // Mid intensity -> Precise AXUS Red (#B61C1C)
-        // High intersection intensity -> Luminous warm crimson core
+        // Dark color mapping strictly using deep crimson and AXUS Red (#B61C1C)
         vec3 color = vec3(0.0);
         
-        // Base dark crimson floor
-        color += DEEP_RED * broadHaze * 0.9;
+        // Faint deep crimson base floor
+        color += DEEP_RED * broadHaze * 0.7;
         
-        // True AXUS red core
-        color += AXUS_RED * (midTrails + coreTrails * 0.6);
+        // Mid-tone velvet red
+        color += MID_RED * midTrails * 0.65;
 
-        // Core highlights where filaments concentrate
-        float coreFocus = pow(coreTrails, 2.2);
-        color += GLOW_RED * coreFocus * 0.45;
-        color += HOT_CORE * pow(coreTrails, 3.5) * 0.3;
+        // Peak AXUS red on core contrail ribbons
+        color += AXUS_RED * coreTrails * 0.70;
 
-        // Smooth compression to avoid harsh clipping
-        color = color / (1.0 + color * 0.45);
+        // Deepen darks to keep background pitch-black and trails shadowy & moody
+        color = pow(color, vec3(1.35));
 
-        // Subtle filmic tone curve
-        color = pow(color, vec3(1.05));
+        // Soft vignette to keep outer edges deep black
+        float vig = 1.0 - smoothstep(0.5, 2.4, length(uv));
+        color *= clamp(vig, 0.0, 1.0);
 
         gl_FragColor = vec4(color, 1.0);
       }
@@ -428,7 +416,7 @@ function initCanvas2DFallback(canvas: HTMLCanvasElement) {
         else ctx.lineTo(x, y);
       }
       ctx.lineWidth = tr.width;
-      ctx.strokeStyle = `rgba(182, 28, 28, ${0.18 + i * 0.08})`;
+      ctx.strokeStyle = `rgba(182, 28, 28, ${0.08 + i * 0.04})`;
       ctx.stroke();
     });
 
